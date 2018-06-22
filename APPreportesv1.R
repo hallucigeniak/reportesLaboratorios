@@ -137,6 +137,7 @@ ui <- dashboardPage(
                 column(width = 12, align="center",
                        box(
                          width = NULL, status = "primary",
+                         uiOutput("SelectUsless"),
                          plotOutput("grafDispositivos"),
                          dataTableOutput("tablaDispositivos")
                        )
@@ -201,6 +202,23 @@ ui <- dashboardPage(
                          ),
                          actionButton("saveData", "Guardar datos")
                        ) 
+                )
+              ),
+              fluidRow(
+                column(width=12,
+                       box(
+                         uiOutput("emailAdrTxt")
+                       )
+                ),
+                column(width=12,
+                       box(
+                         uiOutput("sendButton")
+                       )
+                ),
+                column(width=12,
+                       box(
+                         uiOutput("emailAdrList")
+                       )
                 )
               )
       )
@@ -415,6 +433,9 @@ server <- function(input, output) {
                  output$tablaDispositivos<-renderDataTable(
                    listaTablas$tblConsultasDispositivos
                  )
+                 output$SelectUseless<-renderUI({
+                   sliderInput("selectUseless", "Ver número de useless:", min=5, max=20, value = 10, step=5) 
+                 })
                  ###--- GENERAR TABLA Y GRAFICA POR PROFESIONES ---###
                  #if (!is.na(listaTablas$consultasTotalesProfesion) && !is.na(listaTablas$tblConsultasTotalesProfesion)){
                    listaGraficas$consultasProfesiones<<-graficarProfesiones(listaTablas$consultasTotalesProfesion)
@@ -468,18 +489,6 @@ server <- function(input, output) {
                                   })
                                 }
                    )
-                 #} else{
-                  # output$grafTopProfesiones<-renderText("No hay datos disponibles")
-                  # output$tablaTopProfesiones<-renderText("No hay datos disponibles")
-                  # output$grafTopProfesionesMensual<-renderText("No hay datos disponibles")
-                  # output$tablaTopProfesionesMensual<-renderText("No hay datos disponibles")
-                  # output$grafTopEspecialidades<-renderText("No hay datos disponibles")
-                  # output$tablaTopEspecialidades<-renderText("No hay datos disponibles")
-                  # output$grafTopEspecialidadesMensual<-renderText("No hay datos disponibles")
-                  # output$tablaTopEspecialidadesMensual<-renderText("No hay datos disponibles")
-                  # output$grafTopBrands<-renderText("No hay datos disponibles")
-                  # output$grafTopBrandsMensual<-renderText("No hay datos disponibles")
-                 #}
                  }
                  removeModal()
                }
@@ -555,16 +564,28 @@ server <- function(input, output) {
                    easyClose = FALSE,
                    footer = NULL
                  ))
-                 rsconnect::deployApp(appDir = pathDir, appPrimaryDoc = "Reporte.Rmd", appSourceDoc = file.path(pathDir, "Reporte.rmd"),      account = "eniak", server = "shinyapps.io", appName = paste0("Reporte-", lab,"-", Sys.Date()),      appTitle = paste0("Reporte-", lab,"-", Sys.Date()), launch.browser = function(url) {message("Deployment completed: ", url)}, lint = FALSE, metadata = list(asMultiple = FALSE, asStatic = FALSE),      logLevel = "verbose")
+                 #rsconnect::deployApp(appDir = pathDir, appPrimaryDoc = "Reporte.Rmd", appSourceDoc = file.path(pathDir, "Reporte.rmd"),      account = "eniak", server = "shinyapps.io", appName = paste0("Reporte-", lab,"-", Sys.Date()),      appTitle = paste0("Reporte-", lab,"-", Sys.Date()), launch.browser = function(url) {message("Deployment completed: ", url)}, lint = FALSE, metadata = list(asMultiple = FALSE, asStatic = FALSE),      logLevel = "verbose")
                  removeModal()
-                 reportUrl<-paste0("https://eniak.shinyapps.io/Reporte-",lab, "-", Sys.Date())
-                 showModal(urlModal(reportUrl, 
+                 flag$reportUrl<-paste0("https://eniak.shinyapps.io/Reporte-",lab, "-", Sys.Date())
+                 showModal(urlModal(flag$reportUrl, 
                    title = h3("Reporte guardado"),
                    subtitle=h4("Ahora puedes consultar el reporte con el url proporcionado")
                  ))
+                 #---- EMAILS ----
+                 output$emailAdrTxt<-renderUI({textInput("emailText", label = "Ingresar dirrecciones de correo electrónico válidas", placeholder = "ejemplo@dominio.ej")})
+                 output$emailAdrList<-renderUI({
+                   fileInput("emailList", label = "Cargar lista de correos", accept = c('text/plain', '.csv', '.tsv'))
+                   })
+                 output$sendButton<-renderUI({
+                   actionButton("sendMail", "Enviar")
+                 })
+                 reactive({
+                   input$sendMail
+                   sendmail(from = "<eniak.hernandez@plmlatina.com>", to = isolate(input$emailText), msg = "PRUEBA sendmailR", subject = "Prueba", control=list(smtpServer="plmlatina.com"))
+                 })
                })
   
 }
 #
 #--- Run the application ---#
-shinyApp(ui = ui, server = server, options=options(shiny.host = "195.192.2.126", shiny.port=5070))
+shinyApp(ui = ui, server = server, options=options(shiny.host = "195.192.2.147", shiny.port=5070))
