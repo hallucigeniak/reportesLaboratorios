@@ -4,8 +4,8 @@
 #
 #
 #--- OPCIONES DEL SERVIDOR ----
-#options(shiny.host = "195.192.2.126")
-#options(shiny.port = 5070)
+options(shiny.host = "195.192.2.126")
+options(shiny.port = 5070)
 #
 #--- CARGAR DEPENDENCIAS ----
 source("Dependencias/loadDependencies.R", echo = F)
@@ -191,10 +191,11 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName= "downloadReport",
+              useShinyjs(),
               h1("Descargar reporte"),
               h4(textOutput("textoPeriodoDescarga")),
               fluidRow(
-                column(width = 12,
+                column(width=12,
                        box(title=h2("Secciones en el Reporte"), status = "primary",
                          checkboxGroupInput("reportSections", "Incluir secciones:", choices = list(Resumen="SECCION RESUMEN", Dispositivos="SECCION DISPOSITIVOS", Profesiones="SECCION PROFESIONES", Especialidades="SECCION ESPECIALIDADES"), selected = c("SECCION RESUMEN", "SECCION DISPOSITIVOS","SECCION PROFESIONES", "SECCION ESPECIALIDADES")),
                          tags$head(
@@ -204,20 +205,24 @@ ui <- dashboardPage(
                        ) 
                 )
               ),
+              #--- UI EMAIL ----
+              fluidRow(
+                column(width=12,
+                  box(
+                    textInput("emailSender", label="Remitente", placeholder = "ejemplo@plmlatina.com"))
+                )
+              ),
               fluidRow(
                 column(width=12,
                        box(
-                         uiOutput("emailAdrTxt")
+                         textInput("emailText", label = "Ingresar dirrecciones de correo electrónico válidas", placeholder = "ejemplo@dominio.ej"),
+                         actionButton("sendMail1", "Enviar")
                        )
                 ),
                 column(width=12,
                        box(
-                         uiOutput("sendButton")
-                       )
-                ),
-                column(width=12,
-                       box(
-                         uiOutput("emailAdrList")
+                         fileInput("emailList", label = "Cargar lista de correos", accept = c('text/plain', '.csv', '.tsv')),
+                         actionButton("sendMail2", "Enviar")
                        )
                 )
               )
@@ -403,7 +408,11 @@ server <- function(input, output) {
                  })
                  ###--- GENERAR GRAFICA DE RESUMEN ---###
                  listaGraficas<<-list()
-                 listaGraficas$resumenPeriodo<<-graficarResumenMarcas(listaTablas$grafPeriodosActual)
+                 if (is.null(input$compareYears)){
+                   listaGraficas$resumenPeriodo<<-graficarResumenMarcas(listaTablas$grafPeriodosActual)
+                 } else{
+                   listaGraficas$resumenPeriodo<<-graficarResumenMarcas(listaTablas$grafPeriodosActual, compararPeriodos = T)
+                 }
                  output$grafResumen<-renderPlot({
                    listaGraficas$resumenPeriodo
                  })
@@ -489,8 +498,14 @@ server <- function(input, output) {
                                   })
                                 }
                    )
+                   removeModal()
                  }
-                 removeModal()
+                 shinyjs::disable("emailSender")
+                 shinyjs::disable("emailText")
+                 shinyjs::disable("emailList")
+                 shinyjs::disable("sendMail1")
+                 shinyjs::disable("sendMail2")
+
                }
   )
 
@@ -571,17 +586,19 @@ server <- function(input, output) {
                    title = h3("Reporte guardado"),
                    subtitle=h4("Ahora puedes consultar el reporte con el url proporcionado")
                  ))
-                 #---- EMAILS ----
-                 output$emailAdrTxt<-renderUI({textInput("emailText", label = "Ingresar dirrecciones de correo electrónico válidas", placeholder = "ejemplo@dominio.ej")})
-                 output$emailAdrList<-renderUI({
-                   fileInput("emailList", label = "Cargar lista de correos", accept = c('text/plain', '.csv', '.tsv'))
-                   })
-                 output$sendButton<-renderUI({
-                   actionButton("sendMail", "Enviar")
-                 })
+                 #---- SERVER EMAILS ----
+                 shinyjs::enable("emailSender")
+                 shinyjs::enable("emailText")
+                 shinyjs::enable("emailList")
+                 shinyjs::enable("sendMail1")
+                 shinyjs::enable("sendMail2")
+ 
                  reactive({
-                   input$sendMail
-                   sendmail(from = "<eniak.hernandez@plmlatina.com>", to = isolate(input$emailText), msg = "PRUEBA sendmailR", subject = "Prueba", control=list(smtpServer="plmlatina.com"))
+                   input$sendMail1
+                   input$sendMail2
+                   sender<paste0("<", isolate(input$emailSender), ">")
+                   recieve<-paste0(paste0("<", isolate(input$emailText), ">"), paste0("<", isolate(input$emailList), ">"))
+                   sendmail(from = sender, to = recieve, msg = "PRUEBA sendmailR", subject = "Prueba", control=list(smtpServer="plmlatina.com"))
                  })
                })
   

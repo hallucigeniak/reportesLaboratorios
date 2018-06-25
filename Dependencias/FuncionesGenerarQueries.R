@@ -17,7 +17,7 @@ fullQuery<-function(divisionId, fechaInicial, fechaFinal){
         print(aa)
         tt<-data.frame()
         for (iter in aa){
-          DBobjectString<-paste0("plmtracking_", aa, ".dbo.vw_Tracking_Laboratorio_Medicamentos")
+          DBobjectString<-paste0("plmtracking_", iter, ".dbo.vw_Tracking_Laboratorio_Medicamentos")
           fullQueryString<-paste("SELECT Rlab.TargetName, Rlab.ProfessionName, Rlab.SpecialityName, Rlab.Brand, Rlab.ISBN, Rlab.searchdate, Rlab.Consultas FROM (SELECT TargetName, ProfessionName, SpecialityName, Brand, ISBN, searchdate, parentid AS 'Consultas' FROM ", DBobjectString, " WHERE Brand IS NOT NULL AND DivisionId IN (", divisionId, ") AND searchdate BETWEEN '", fechaInicial, "' AND '", fechaFinal, "') as Rlab inner join  Medinet.dbo.Editions e on Rlab.ISBN = e.ISBN", sep="")
           print(fullQueryString)
           tt<-rbind(tt, sqldf(fullQueryString, connection= con))

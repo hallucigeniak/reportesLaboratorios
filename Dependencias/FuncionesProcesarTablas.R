@@ -35,7 +35,8 @@ procesarTablas<-function(tablaQuery, Actual=T){
     consultasTotales<-tablaQuery %>% group_by(searchdateMonths) %>% summarise(ConsultasTotales=sum(ConsultasTotales))
     fechasFormateadas<-paste0(consultasTotales$searchdateMonths, "-01")
     consultasTotales$searchdateMonths<-as.Date(fechasFormateadas)
-    consultasTotales$Periodo<-year(consultasTotales$searchdateMonths)
+    #consultasTotales$Periodo<-year(consultasTotales$searchdateMonths)
+    consultasTotales$Periodo<-"Actual"
     grafConsultasTotales<-consultasTotales
     listaTablas$grafPeriodosActual<-grafConsultasTotales
     #--- Generar tabla para Renderear ---#
@@ -157,8 +158,8 @@ procesarTablas<-function(tablaQuery, Actual=T){
     consultasTotalesLastYear<-tablaQuery %>% group_by(searchdateMonths) %>% summarise(ConsultasTotales=sum(ConsultasTotales))
     fechasFormateadas<-paste0(consultasTotalesLastYear$searchdateMonths, "-01")
     consultasTotalesLastYear$searchdateMonths<-as.Date(fechasFormateadas)
-    consultasTotalesLastYear$Periodo<-year(consultasTotalesLastYear$searchdateMonths)
-    
+    #consultasTotalesLastYear$Periodo<-year(consultasTotalesLastYear$searchdateMonths)
+    consultasTotalesLastYear$Periodo<-"Anterior"
     tablaSpread <- consultasTotalesLastYear %>% spread(searchdateMonths, ConsultasTotales, fill=0)
     fechasColNames<-format(as.Date(colnames(tablaSpread)[-1]), "%b")
     colnames(tablaSpread)<-c("Periodo", fechasColNames)
