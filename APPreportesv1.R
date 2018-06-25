@@ -111,9 +111,12 @@ ui <- dashboardPage(
                 box(
                   title=h2("Resumen de consultas totales"), width = NULL, status = "primary",
                   plotOutput("grafResumen"),
-                  dataTableOutput("tablaConsultasTotales"),
-                  textOutput("textoIncremento")
-                  ) 
+                  dataTableOutput("tablaConsultasTotales")
+                ),
+                box(title=h2("Clicks y prints del periodo"), width= NULL, status = "primary",
+                    plotOutput("grafClicksPrints"),
+                    dataTableOutput("tblClicksPrints")
+                    )
               ),
               fluidRow(
                 box(
@@ -420,6 +423,15 @@ server <- function(input, output) {
                  output$tablaConsultasTotales<-renderDataTable(
                    listaTablas$consultasPeriodos
                    #options = list(pageLength=NROW(listaTablas$consultasPeriodos))
+                 )
+                 ###--- GENERAR GRAFICA DE CLICKS Y PRINTS ---###
+                 listaGraficas$ClicksPrints<<-graficarClicksPrints(listaTablas$grafClicksPrintsPeriodo)
+                 output$grafClicksPrints<-renderPlot({
+                   listaGraficas$ClicksPrints
+                 })
+                 ###--- GENERAR TABLA PARA RENDEREAR CLICKS Y PRINTS ---###
+                 output$tblClicksPrints<-renderDataTable(
+                   listaTablas$tblClicksPrints
                  )
                  ###--- GENERAR TABLA DE MARCAS DEL LABORATORIO ---###
                  output$tablaTopBrandsMensual<-renderDataTable(

@@ -26,12 +26,15 @@ procesarTablas<-function(tablaQuery, Actual=T){
   tablaQuery$ConsultasTotales<-1
   if(Actual){
     #--- TABLA MAESTRA ---#
-    tablaQuery$Clicks<-0
-    tablaQuery$Clicks[which(tablaQuery$Consultas==0)]<-1
-    tablaQuery$Prints<-0
-    tablaQuery$Prints[which(tablaQuery$Consultas!=0)]<-1
+    tablaQuery$ClickOrPrint<-0
+    tablaQuery$ClickOrPrint[which(tablaQuery$Consultas==0)]<-"Clicks"
+    tablaQuery$ClickOrPrint[which(tablaQuery$Consultas!=0)]<-"Prints"
+    #tablaQuery$Clicks<-0
+    #tablaQuery$Clicks[which(tablaQuery$Consultas==0)]<-1
+    #tablaQuery$Prints<-0
+    #tablaQuery$Prints[which(tablaQuery$Consultas!=0)]<-1
     listaTablas<-list()
-    #--- Generar tabla pra graficar Resumen de periodos ---#
+    #--- GENERAR TABLA PARA GRAFICAR RESUMEN DE CONSULTAS TOTALES ---#
     consultasTotales<-tablaQuery %>% group_by(searchdateMonths) %>% summarise(ConsultasTotales=sum(ConsultasTotales))
     fechasFormateadas<-paste0(consultasTotales$searchdateMonths, "-01")
     consultasTotales$searchdateMonths<-as.Date(fechasFormateadas)
@@ -39,7 +42,7 @@ procesarTablas<-function(tablaQuery, Actual=T){
     consultasTotales$Periodo<-"Actual"
     grafConsultasTotales<-consultasTotales
     listaTablas$grafPeriodosActual<-grafConsultasTotales
-    #--- Generar tabla para Renderear ---#
+    #--- GENERAR TABLA PARA RENDEREAR CONSULTAS TOTALES ---#
     tablaSpread <- consultasTotales %>% spread(searchdateMonths, ConsultasTotales, fill=0)
     fechasColNames<-format(as.Date(colnames(tablaSpread)[-1]), "%b")
     colnames(tablaSpread)<-c("Periodo", fechasColNames)
@@ -47,7 +50,15 @@ procesarTablas<-function(tablaQuery, Actual=T){
     tablaSpread<-cbind(tablaSpread, TOTAL)
     listaTablas$tablaSpreadPeriodos<-tablaSpread
     listaTablas$consultasPeriodos<-formatCurrency(datatable(tablaSpread), columns = 2:NCOL(tablaSpread), currency = "", mark = ",", digits = 0)
-    #
+    #--- GENERAR TABLA PARA GRAFICAR CLICKS Y PRINTS DEL PERIODO ---#
+    tablaGrafClicksPrints<-tablaQuery %>% count(searchdateMonths, ClickOrPrint)
+    listaTablas$grafClicksPrintsPeriodo<-tablaGrafClicksPrints
+    #--- GENERAR TABLA PARA RENDEREAR CLICKS Y PRINTS DEL PERIODO ---#
+    tblClicksPrints<-spread(tablaGrafClicksPrints, searchdateMonths, n, fill=0)
+    TOTAL<-unlist(apply(tblClicksPrints[,-1], 1, function(x) sum(x)))
+    tblClicksPrints<-cbind(tblClicksPrints, TOTAL)
+    colnames(tblClicksPrints)[1]<-"Tipo"
+    listaTablas$tblClicksPrints<-formatCurrency(datatable(tblClicksPrints), columns = 2:NCOL(tblClicksPrints), currency = "", mark = ",", digits = 0)
     #--- GENERAR TABLAS DE CONSULTAS POR MARCA ---#
     consultasXproductoMensual<-tablaQuery %>% group_by(Brand, searchdateMonths) %>% summarise(Consultas=sum(ConsultasTotales))
     consultasXproductoMensual$searchdateMonths<-paste(consultasXproductoMensual$searchdateMonths, "01", sep="-")
