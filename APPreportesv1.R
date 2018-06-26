@@ -140,9 +140,14 @@ ui <- dashboardPage(
                 column(width = 12, align="center",
                        box(
                          width = NULL, status = "primary",
-                         uiOutput("SelectUsless"),
                          plotOutput("grafDispositivos"),
                          dataTableOutput("tablaDispositivos")
+                       ),
+                       box(
+                         width=NULL, status = "primary",
+                         sliderInput("selectTopDistributions", "Ver número de distribuciones:", min=5, max=20, value = 10, step=5),
+                         plotOutput("grafDistributions"),
+                         dataTableOutput("tblDistributions")
                        )
                 )
               )
@@ -319,8 +324,8 @@ server <- function(input, output) {
                  fechaFinal<-input$selectFechas[2]
                  divisionId<-input$listaDivisions
                  divisionId<-paste(unique(catalogoLabs$DivisionId[which(catalogoLabs$DivisionIdNorm==divisionId)]), collapse = ", ")
-                 #--- Consultas actuales
-                 tablaResultados<-fullQuery(divisionId, fechaInicial, fechaFinal)
+                 #--- MANDAR QUERY ACTUALES ----
+                 tablaResultados<<-fullQuery(divisionId, fechaInicial, fechaFinal)
                  #
                  #--- Validacion fechaInicial < FechaFinal
                  if (class(tablaResultados) == "character" ){
@@ -343,13 +348,13 @@ server <- function(input, output) {
                  } 
                  else if (class(tablaResultados) == "data.frame"){
                  listaTablas<<-procesarTablas(tablaResultados, Actual=T)
-                 #--- Consultas de hace un año
+                 #--- MANDAR QUERY AÑO ANTERIOR ----
                  print(input$compareYears)
                  if (!is.null(input$compareYears)){
                    if (input$compareYears){
                      print("Comparar año")
                      yearBehindDates<-as.Date(input$selectFechas) %m-% years(1)
-                     tablaLastYear<-fullQuery(divisionId, yearBehindDates[1], yearBehindDates[2])
+                     tablaLastYear<<-fullQuery(divisionId, yearBehindDates[1], yearBehindDates[2])
                      consultasTotalesLastYear<<-procesarTablas(tablaLastYear, Actual = F)
                      listaTablas$grafPeriodosActual<<-rbind(listaTablas$grafPeriodosActual, consultasTotalesLastYear)
                    }
@@ -454,9 +459,15 @@ server <- function(input, output) {
                  output$tablaDispositivos<-renderDataTable(
                    listaTablas$tblConsultasDispositivos
                  )
-                 output$SelectUseless<-renderUI({
-                   sliderInput("selectUseless", "Ver número de useless:", min=5, max=20, value = 10, step=5) 
+                 ###--- GENERAR TABLA Y GRAFICA DISTRIBUTIONS ---###
+                 listaGraficas$consultasDistributions<-graficaTopDistribuciones(listaTablas$grafTopDistributions, input$selectTopDistributions)
+                 output$grafDistributions<-renderPlot({
+                   listaGraficas$consultasDistributions
                  })
+                 output$tblDistributions<-renderDataTable(
+                   listaTablas$tblDistributions
+                 )
+                 
                  ###--- GENERAR TABLA Y GRAFICA POR PROFESIONES ---###
                  #if (!is.na(listaTablas$consultasTotalesProfesion) && !is.na(listaTablas$tblConsultasTotalesProfesion)){
                    listaGraficas$consultasProfesiones<<-graficarProfesiones(listaTablas$consultasTotalesProfesion)

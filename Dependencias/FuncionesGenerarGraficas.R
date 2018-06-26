@@ -7,11 +7,10 @@
 graficarResumenMarcas<-function(tabla, compararPeriodos=F){
   if (compararPeriodos){
     meses<-months(tabla$searchdateMonths, abbreviate = T)
-    mesesN<-1:length(meses)
-    ggplot(data = tabla, aes(x=mesesN, y=ConsultasTotales, group=Periodo, colour=as.factor(Periodo))) + geom_line(size=1) + geom_point(size=3) + geom_text(aes(label = format(ConsultasTotales, big.mark = ",", scientific = F), vjust= -1), size = 4) + labs(x = "Mes", y = "Consultas") + expand_limits(y=0) + theme(axis.title = element_text(size=16), axis.text.x=element_text(size=12), axis.text.y=element_text(hjust=1, size=10), axis.line = element_line(colour = "black"), legend.title=element_blank(), legend.text=element_text(size=12)) + scale_y_continuous(labels = comma, expand = c(0.05, 10)) + scale_x_continuous(labels = meses, breaks = mesesN )
+    meses<-factor(meses, levels = unique(meses))
+    #mesesN<-as.factor(1:length(meses))
+    ggplot(data = tabla, aes(x=meses, y=ConsultasTotales, group=Periodo, colour=as.factor(Periodo))) + geom_line(size=1) + geom_point(size=3) + geom_text(aes(label = format(ConsultasTotales, big.mark = ",", scientific = F), vjust= -1), size = 4) + labs(x = "Mes", y = "Consultas") + expand_limits(y=0) + theme(axis.title = element_text(size=16), axis.text.x=element_text(size=12), axis.text.y=element_text(hjust=1, size=10), axis.line = element_line(colour = "black"), legend.title=element_blank(), legend.text=element_text(size=12)) + scale_y_continuous(labels = comma, expand = c(0.05, 10)) + scale_x_discrete(labels = meses, breaks = meses)
   } else{
-    #meses<-months(tabla$searchdateMonths, abbreviate = T)
-    #mesesN<-as.numeric(format(tabla$searchdateMonths, "%m"))
     ggplot(data = tabla, aes(x=searchdateMonths, y=ConsultasTotales, group=Periodo, colour=as.factor(Periodo))) + geom_line(size=1) + geom_point(size=3) + geom_text(aes(label = format(ConsultasTotales, big.mark = ",", scientific = F), vjust= -1), size = 4) + labs(x = "Mes", y = "Consultas") + expand_limits(y=0) + theme(axis.title = element_text(size=16), axis.text.x=element_text(size=12), axis.text.y=element_text(hjust=1, size=10), axis.line = element_line(colour = "black"), legend.title=element_blank()) + scale_y_continuous(labels = comma, expand = c(0.05, 10)) + scale_x_date(labels = date_format("%Y-%b"), date_breaks = "1 month")
   }
 }
@@ -34,6 +33,10 @@ graficarTopMarcasMensual<-function(tabla, Nbrands){
 graficaPastelDispositivos<-function(tabla){
   Dispositivos<-paste(tabla$Dispositivo, tabla$Porcentaje, " ")
   ggplot(tabla, aes(x="", y=Consultas, fill=Dispositivos)) + geom_bar(width=1, stat="identity", color="black") + coord_polar(theta="y", start=0) + theme_void() + labs(x="", y="") + theme(legend.title=element_text(hjust=0.5, size=20, face="bold"), legend.text = element_text(size = 18)) + guides(fill=guide_legend(override.aes=list(colour=NA)))
+}
+#
+graficaTopDistribuciones<-function(tabla, Ndistributions){
+  ggplot(tabla[1:Ndistributions, ], aes(x=factor(reorder(PrefixDescription, -Porcentaje)), y=Porcentaje, fill=PrefixDescription)) + coord_flip() + theme(legend.position="none", axis.text.x=element_text(size=12, face="bold"), axis.text.y=element_text(size=11, face="bold"), axis.title.y=element_blank(), axis.title = element_text(size=16)) + scale_y_continuous(breaks = seq(0, 100, by=10), limits=c(0,100)) + geom_text(aes(label=Porcentaje), hjust = -0.5, size=4)
 }
 #
 graficarTopEspecialidades<-function(tabla, Nespecialidades){
