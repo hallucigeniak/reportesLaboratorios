@@ -4,8 +4,8 @@
 #
 #
 #--- OPCIONES DEL SERVIDOR ----
-#options(shiny.host = "195.192.2.126")
-#options(shiny.port = 5070)
+options(shiny.host = "195.192.2.126")
+options(shiny.port = 5070)
 #
 #--- CARGAR DEPENDENCIAS ----
 source("Dependencias/loadDependencies.R", echo = F)
@@ -111,9 +111,12 @@ ui <- dashboardPage(
                 box(
                   title=h2("Resumen de consultas totales"), width = NULL, status = "primary",
                   plotOutput("grafResumen"),
-                  dataTableOutput("tablaConsultasTotales"),
-                  textOutput("textoIncremento")
-                  ) 
+                  dataTableOutput("tablaConsultasTotales")
+                ),
+                box(title=h2("Clicks y prints del periodo"), width= NULL, status = "primary",
+                    plotOutput("grafClicksPrints"),
+                    dataTableOutput("tblClicksPrints")
+                    )
               ),
               fluidRow(
                 box(
@@ -139,6 +142,12 @@ ui <- dashboardPage(
                          width = NULL, status = "primary",
                          plotOutput("grafDispositivos"),
                          dataTableOutput("tablaDispositivos")
+                       ),
+                       box(
+                         width=NULL, status = "primary",
+                         sliderInput("selectTopDistributions", "Ver número de distribuciones:", min=5, max=20, value = 10, step=5),
+                         plotOutput("grafDistributions"),
+                         dataTableOutput("tblDistributions")
                        )
                 )
               )
@@ -190,10 +199,11 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName= "downloadReport",
+              useShinyjs(),
               h1("Descargar reporte"),
               h4(textOutput("textoPeriodoDescarga")),
               fluidRow(
-                column(width = 12,
+                column(width=12,
                        box(title=h2("Secciones en el Reporte"), status = "primary",
                          checkboxGroupInput("reportSections", "Incluir secciones:", choices = list(Resumen="SECCION RESUMEN", Dispositivos="SECCION DISPOSITIVOS", Profesiones="SECCION PROFESIONES", Especialidades="SECCION ESPECIALIDADES"), selected = c("SECCION RESUMEN", "SECCION DISPOSITIVOS","SECCION PROFESIONES", "SECCION ESPECIALIDADES")),
                          tags$head(
@@ -201,6 +211,27 @@ ui <- dashboardPage(
                          ),
                          actionButton("saveData", "Guardar datos")
                        ) 
+                )
+              ),
+              #--- UI EMAIL ----
+              fluidRow(
+                column(width=12,
+                  box(
+                    textInput("emailSender", label="Remitente", placeholder = "ejemplo@plmlatina.com"))
+                )
+              ),
+              fluidRow(
+                column(width=12,
+                       box(
+                         textInput("emailText", label = "Ingresar dirrecciones de correo electrónico válidas", placeholder = "ejemplo@dominio.ej"),
+                         actionButton("sendMail1", "Enviar")
+                       )
+                ),
+                column(width=12,
+                       box(
+                         fileInput("emailList", label = "Cargar lista de correos", accept = c('text/plain', '.csv', '.tsv')),
+                         actionButton("sendMail2", "Enviar")
+                       )
                 )
               )
       )
@@ -293,8 +324,8 @@ server <- function(input, output) {
                  fechaFinal<-input$selectFechas[2]
                  divisionId<-input$listaDivisions
                  divisionId<-paste(unique(catalogoLabs$DivisionId[which(catalogoLabs$DivisionIdNorm==divisionId)]), collapse = ", ")
-                 #--- Consultas actuales
-                 tablaResultados<-fullQuery(divisionId, fechaInicial, fechaFinal)
+                 #--- MANDAR QUERY ACTUALES ----
+                 tablaResultados<<-fullQuery(divisionId, fechaInicial, fechaFinal)
                  #
                  #--- Validacion fechaInicial < FechaFinal
                  if (class(tablaResultados) == "character" ){
@@ -317,13 +348,13 @@ server <- function(input, output) {
                  } 
                  else if (class(tablaResultados) == "data.frame"){
                  listaTablas<<-procesarTablas(tablaResultados, Actual=T)
-                 #--- Consultas de hace un año
+                 #--- MANDAR QUERY AÑO ANTERIOR ----
                  print(input$compareYears)
                  if (!is.null(input$compareYears)){
                    if (input$compareYears){
                      print("Comparar año")
                      yearBehindDates<-as.Date(input$selectFechas) %m-% years(1)
-                     tablaLastYear<-fullQuery(divisionId, yearBehindDates[1], yearBehindDates[2])
+                     tablaLastYear<<-fullQuery(divisionId, yearBehindDates[1], yearBehindDates[2])
                      consultasTotalesLastYear<<-procesarTablas(tablaLastYear, Actual = F)
                      listaTablas$grafPeriodosActual<<-rbind(listaTablas$grafPeriodosActual, consultasTotalesLastYear)
                    }
@@ -385,7 +416,11 @@ server <- function(input, output) {
                  })
                  ###--- GENERAR GRAFICA DE RESUMEN ---###
                  listaGraficas<<-list()
-                 listaGraficas$resumenPeriodo<<-graficarResumenMarcas(listaTablas$grafPeriodosActual)
+                 if (is.null(input$compareYears)){
+                   listaGraficas$resumenPeriodo<<-graficarResumenMarcas(listaTablas$grafPeriodosActual)
+                 } else{
+                   listaGraficas$resumenPeriodo<<-graficarResumenMarcas(listaTablas$grafPeriodosActual, compararPeriodos = T)
+                 }
                  output$grafResumen<-renderPlot({
                    listaGraficas$resumenPeriodo
                  })
@@ -393,6 +428,15 @@ server <- function(input, output) {
                  output$tablaConsultasTotales<-renderDataTable(
                    listaTablas$consultasPeriodos
                    #options = list(pageLength=NROW(listaTablas$consultasPeriodos))
+                 )
+                 ###--- GENERAR GRAFICA DE CLICKS Y PRINTS ---###
+                 listaGraficas$ClicksPrints<<-graficarClicksPrints(listaTablas$grafClicksPrintsPeriodo)
+                 output$grafClicksPrints<-renderPlot({
+                   listaGraficas$ClicksPrints
+                 })
+                 ###--- GENERAR TABLA PARA RENDEREAR CLICKS Y PRINTS ---###
+                 output$tblClicksPrints<-renderDataTable(
+                   listaTablas$tblClicksPrints
                  )
                  ###--- GENERAR TABLA DE MARCAS DEL LABORATORIO ---###
                  output$tablaTopBrandsMensual<-renderDataTable(
@@ -415,6 +459,15 @@ server <- function(input, output) {
                  output$tablaDispositivos<-renderDataTable(
                    listaTablas$tblConsultasDispositivos
                  )
+                 ###--- GENERAR TABLA Y GRAFICA DISTRIBUTIONS ---###
+                 listaGraficas$consultasDistributions<-graficaTopDistribuciones(listaTablas$grafTopDistributions, input$selectTopDistributions)
+                 output$grafDistributions<-renderPlot({
+                   listaGraficas$consultasDistributions
+                 })
+                 output$tblDistributions<-renderDataTable(
+                   listaTablas$tblDistributions
+                 )
+                 
                  ###--- GENERAR TABLA Y GRAFICA POR PROFESIONES ---###
                  #if (!is.na(listaTablas$consultasTotalesProfesion) && !is.na(listaTablas$tblConsultasTotalesProfesion)){
                    listaGraficas$consultasProfesiones<<-graficarProfesiones(listaTablas$consultasTotalesProfesion)
@@ -468,20 +521,14 @@ server <- function(input, output) {
                                   })
                                 }
                    )
-                 #} else{
-                  # output$grafTopProfesiones<-renderText("No hay datos disponibles")
-                  # output$tablaTopProfesiones<-renderText("No hay datos disponibles")
-                  # output$grafTopProfesionesMensual<-renderText("No hay datos disponibles")
-                  # output$tablaTopProfesionesMensual<-renderText("No hay datos disponibles")
-                  # output$grafTopEspecialidades<-renderText("No hay datos disponibles")
-                  # output$tablaTopEspecialidades<-renderText("No hay datos disponibles")
-                  # output$grafTopEspecialidadesMensual<-renderText("No hay datos disponibles")
-                  # output$tablaTopEspecialidadesMensual<-renderText("No hay datos disponibles")
-                  # output$grafTopBrands<-renderText("No hay datos disponibles")
-                  # output$grafTopBrandsMensual<-renderText("No hay datos disponibles")
-                 #}
+                   removeModal()
                  }
-                 removeModal()
+                 shinyjs::disable("emailSender")
+                 shinyjs::disable("emailText")
+                 shinyjs::disable("emailList")
+                 shinyjs::disable("sendMail1")
+                 shinyjs::disable("sendMail2")
+
                }
   )
 
@@ -555,16 +602,30 @@ server <- function(input, output) {
                    easyClose = FALSE,
                    footer = NULL
                  ))
-                 rsconnect::deployApp(appDir = pathDir, appPrimaryDoc = "Reporte.Rmd", appSourceDoc = file.path(pathDir, "Reporte.rmd"),      account = "eniak", server = "shinyapps.io", appName = paste0("Reporte-", lab,"-", Sys.Date()),      appTitle = paste0("Reporte-", lab,"-", Sys.Date()), launch.browser = function(url) {message("Deployment completed: ", url)}, lint = FALSE, metadata = list(asMultiple = FALSE, asStatic = FALSE),      logLevel = "verbose")
+                 #rsconnect::deployApp(appDir = pathDir, appPrimaryDoc = "Reporte.Rmd", appSourceDoc = file.path(pathDir, "Reporte.rmd"),      account = "eniak", server = "shinyapps.io", appName = paste0("Reporte-", lab,"-", Sys.Date()),      appTitle = paste0("Reporte-", lab,"-", Sys.Date()), launch.browser = function(url) {message("Deployment completed: ", url)}, lint = FALSE, metadata = list(asMultiple = FALSE, asStatic = FALSE),      logLevel = "verbose")
                  removeModal()
-                 reportUrl<-paste0("https://eniak.shinyapps.io/Reporte-",lab, "-", Sys.Date())
-                 showModal(urlModal(reportUrl, 
+                 flag$reportUrl<-paste0("https://eniak.shinyapps.io/Reporte-",lab, "-", Sys.Date())
+                 showModal(urlModal(flag$reportUrl, 
                    title = h3("Reporte guardado"),
                    subtitle=h4("Ahora puedes consultar el reporte con el url proporcionado")
                  ))
+                 #---- SERVER EMAILS ----
+                 shinyjs::enable("emailSender")
+                 shinyjs::enable("emailText")
+                 shinyjs::enable("emailList")
+                 shinyjs::enable("sendMail1")
+                 shinyjs::enable("sendMail2")
+ 
+                 reactive({
+                   input$sendMail1
+                   input$sendMail2
+                   sender<paste0("<", isolate(input$emailSender), ">")
+                   recieve<-paste0(paste0("<", isolate(input$emailText), ">"), paste0("<", isolate(input$emailList), ">"))
+                   sendmail(from = sender, to = recieve, msg = "PRUEBA sendmailR", subject = "Prueba", control=list(smtpServer="plmlatina.com"))
+                 })
                })
   
 }
 #
 #--- Run the application ---#
-shinyApp(ui = ui, server = server, options=options(shiny.host = "195.192.2.126", shiny.port=5070))
+shinyApp(ui = ui, server = server, options=options(shiny.host = "195.192.2.147", shiny.port=5070))
