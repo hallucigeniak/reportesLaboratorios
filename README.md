@@ -1,2 +1,2 @@
 # reportesLaboratorios
-código R para el App de reportes de laboratorios-PLM
+código R para el App de reportes de laboratorios
