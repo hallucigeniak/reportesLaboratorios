@@ -8,6 +8,7 @@ dependencias<-c("shiny",
                 "shinycssloaders",
                 "shinyjs",
                 "shinyBS",
+                "mailR",
                 "odbc",
                 "sqldf",
                 "dplyr",
@@ -41,6 +42,7 @@ source("Dependencias/FuncionesGenerarGraficas.R")
 source("Dependencias/FuncionesProcesarTablas.R")
 #
 #- Datos
+#tablaWaitTimes<-read.delim("Dependencias/EstimatedTimes.csv")
 tablaTodasProfesiones<-read.delim("Dependencias/Profesiones.tsv", sep="\t") #Tabla1 para mapear profesiones
 tablaProfesionesAgrupadas<-read.delim("Dependencias/GruposProfesiones.tsv", sep="\t") #Tabla2 para mapear profesiones 
 tablaEspecialidades<-read.delim("Dependencias/Especialidades.tsv", sep="\t") #Tabla de especialidades mapeadas

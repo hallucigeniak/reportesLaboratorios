@@ -22,23 +22,27 @@ procesarTablas<-function(tablaQuery, Actual=T){
   ptm<-proc.time()
   tablaQuery$searchdate<-as.Date(tablaQuery$searchdate)
   tablaQuery$searchdateMonths<-format(tablaQuery$searchdate, "%Y-%m")
-  
   tablaQuery$ConsultasTotales<-1
+  
   if(Actual){
     #--- TABLA MAESTRA ---#
-    tablaQuery$Clicks<-0
-    tablaQuery$Clicks[which(tablaQuery$Consultas==0)]<-1
-    tablaQuery$Prints<-0
-    tablaQuery$Prints[which(tablaQuery$Consultas!=0)]<-1
+    tablaQuery$ClickOrPrint<-0
+    tablaQuery$ClickOrPrint[which(tablaQuery$Consultas==0)]<-"Clicks"
+    tablaQuery$ClickOrPrint[which(tablaQuery$Consultas!=0)]<-"Prints"
+    #tablaQuery$Clicks<-0
+    #tablaQuery$Clicks[which(tablaQuery$Consultas==0)]<-1
+    #tablaQuery$Prints<-0
+    #tablaQuery$Prints[which(tablaQuery$Consultas!=0)]<-1
     listaTablas<-list()
-    #--- Generar tabla pra graficar Resumen de periodos ---#
+    #--- GENERAR TABLA PARA GRAFICAR RESUMEN DE CONSULTAS TOTALES ---#
     consultasTotales<-tablaQuery %>% group_by(searchdateMonths) %>% summarise(ConsultasTotales=sum(ConsultasTotales))
     fechasFormateadas<-paste0(consultasTotales$searchdateMonths, "-01")
     consultasTotales$searchdateMonths<-as.Date(fechasFormateadas)
-    consultasTotales$Periodo<-year(consultasTotales$searchdateMonths)
+    #consultasTotales$Periodo<-year(consultasTotales$searchdateMonths)
+    consultasTotales$Periodo<-"Actual"
     grafConsultasTotales<-consultasTotales
     listaTablas$grafPeriodosActual<-grafConsultasTotales
-    #--- Generar tabla para Renderear ---#
+    #--- GENERAR TABLA PARA RENDEREAR CONSULTAS TOTALES ---#
     tablaSpread <- consultasTotales %>% spread(searchdateMonths, ConsultasTotales, fill=0)
     fechasColNames<-format(as.Date(colnames(tablaSpread)[-1]), "%b")
     colnames(tablaSpread)<-c("Periodo", fechasColNames)
@@ -46,7 +50,15 @@ procesarTablas<-function(tablaQuery, Actual=T){
     tablaSpread<-cbind(tablaSpread, TOTAL)
     listaTablas$tablaSpreadPeriodos<-tablaSpread
     listaTablas$consultasPeriodos<-formatCurrency(datatable(tablaSpread), columns = 2:NCOL(tablaSpread), currency = "", mark = ",", digits = 0)
-    #
+    #--- GENERAR TABLA PARA GRAFICAR CLICKS Y PRINTS DEL PERIODO ---#
+    tablaGrafClicksPrints<-tablaQuery %>% count(searchdateMonths, ClickOrPrint)
+    listaTablas$grafClicksPrintsPeriodo<-tablaGrafClicksPrints
+    #--- GENERAR TABLA PARA RENDEREAR CLICKS Y PRINTS DEL PERIODO ---#
+    tblClicksPrints<-spread(tablaGrafClicksPrints, searchdateMonths, n, fill=0)
+    TOTAL<-unlist(apply(tblClicksPrints[,-1], 1, function(x) sum(x)))
+    tblClicksPrints<-cbind(tblClicksPrints, TOTAL)
+    colnames(tblClicksPrints)[1]<-"Tipo"
+    listaTablas$tblClicksPrints<-formatCurrency(datatable(tblClicksPrints), columns = 2:NCOL(tblClicksPrints), currency = "", mark = ",", digits = 0)
     #--- GENERAR TABLAS DE CONSULTAS POR MARCA ---#
     consultasXproductoMensual<-tablaQuery %>% group_by(Brand, searchdateMonths) %>% summarise(Consultas=sum(ConsultasTotales))
     consultasXproductoMensual$searchdateMonths<-paste(consultasXproductoMensual$searchdateMonths, "01", sep="-")
@@ -55,23 +67,23 @@ procesarTablas<-function(tablaQuery, Actual=T){
     colnames(consultasMarcasMensual)<-c("Marca", "Fecha", "Consultas")
     listaTablas$consultasMarcasMensual<-consultasMarcasMensual
     #--- Tabla TOP MARCAS: Ordenada por consultas ---#
-        consultasTopMarcas<- consultasXproductoMensual %>% group_by(Brand) %>% summarise(Consultas=sum(Consultas))
-        consultasTopMarcas<-consultasTopMarcas[order(consultasTopMarcas$Consultas, decreasing = T),]
-        colnames(consultasTopMarcas)<-c("Marca", "Consultas")
-        listaTablas$grafTopMarcas<-consultasTopMarcas
-        consultasTopMarcas<-cbind(consultasTopMarcas, Porcentaje=paste(round((consultasTopMarcas$Consultas*100)/sum(consultasTopMarcas$Consultas), 2), "%"))
-        colnames(consultasTopMarcas)<-c("Marca", "Consultas", "Porcentaje")
-        listaTablas$TopMarcas<-consultasTopMarcas
-        listaTablas$tblTopMarcas<-formatCurrency(datatable(consultasTopMarcas), columns = 2, currency = "", mark = ",", digits = 0)
+    consultasTopMarcas<- consultasXproductoMensual %>% group_by(Brand) %>% summarise(Consultas=sum(Consultas))
+    consultasTopMarcas<-consultasTopMarcas[order(consultasTopMarcas$Consultas, decreasing = T),]
+    colnames(consultasTopMarcas)<-c("Marca", "Consultas")
+    listaTablas$grafTopMarcas<-consultasTopMarcas
+    consultasTopMarcas<-cbind(consultasTopMarcas, Porcentaje=paste(round((consultasTopMarcas$Consultas*100)/sum(consultasTopMarcas$Consultas), 2), "%"))
+    colnames(consultasTopMarcas)<-c("Marca", "Consultas", "Porcentaje")
+    listaTablas$TopMarcas<-consultasTopMarcas
+    listaTablas$tblTopMarcas<-formatCurrency(datatable(consultasTopMarcas), columns = 2, currency = "", mark = ",", digits = 0)
     #--- Tabla de Consultas por marca por mes ---#
-        todasLasMarcas<-spread(consultasXproductoMensual, searchdateMonths, Consultas, fill=0)
-        fechasColNames<-colnames(todasLasMarcas)[-1]
-        fechasColNames<-format(as.Date(fechasColNames), "%b")
-        todasLasMarcas<-cbind(todasLasMarcas, TOTAL=rowSums(todasLasMarcas[,-1]))
-        todasLasMarcas[,-1]<-sapply(todasLasMarcas[,-1], as.integer)
-        colnames(todasLasMarcas)<-c("Marca", fechasColNames, "TOTAL")
-        listaTablas$TopMarcasMes<-formatCurrency(datatable(todasLasMarcas), columns = 2:NCOL(todasLasMarcas), currency = "", mark = ",", digits = 0)
-        #
+    todasLasMarcas<-spread(consultasXproductoMensual, searchdateMonths, Consultas, fill=0)
+    fechasColNames<-colnames(todasLasMarcas)[-1]
+    fechasColNames<-format(as.Date(fechasColNames), "%b")
+    todasLasMarcas<-cbind(todasLasMarcas, TOTAL=rowSums(todasLasMarcas[,-1]))
+    todasLasMarcas[,-1]<-sapply(todasLasMarcas[,-1], as.integer)
+    colnames(todasLasMarcas)<-c("Marca", fechasColNames, "TOTAL")
+    listaTablas$TopMarcasMes<-formatCurrency(datatable(todasLasMarcas), columns = 2:NCOL(todasLasMarcas), currency = "", mark = ",", digits = 0)
+    #
     #--- Tabla de Consultas por Dispositivo ---#
     consultasDispositivos<-count(tablaQuery, TargetName)
     colnames(consultasDispositivos) <- c("Dispositivo", "Consultas")
@@ -79,6 +91,15 @@ procesarTablas<-function(tablaQuery, Actual=T){
     listaTablas$consultasDispositivos<-consultasDispositivos
     listaTablas$tblConsultasDispositivos<-formatCurrency(datatable(consultasDispositivos), columns = 2, currency = "", mark = ",", digits = 0)
     #
+    #--- Consultas por Distribución para grafica ---#
+    consultasTopDistributions<- tablaQuery %>% count(PrefixDescription) %>% arrange(desc(n))
+    consultasTopDistributions<- cbind(consultasTopDistributions, Porcentaje=(round((consultasTopDistributions$n/sum(consultasTopDistributions$n))*100, 2)))
+    listaTablas$grafTopDistributions<-consultasTopDistributions
+    #--- COnsultas por Distribucion par tabla ---#
+    consultasDistribucionTbl<- tablaQuery %>% count(PrefixDescription, TargetName) %>% spread(TargetName, n, fill=0)
+    consultasDistribucionTbl<-cbind(consultasDistribucionTbl, TOTAL=rowSums(consultasDistribucionTbl[,-1])) %>% arrange(desc(TOTAL))
+    consultasDistribucionTbl<-consultasDistribucionTbl %>% cbind(consultasDistribucionTbl, Porcentaje=(round((consultasDistribucionTbl$TOTAL/sum(consultasDistribucionTbl$TOTAL))*100, 2)))
+    listaTablas$tblDistributions<-formatCurrency(datatable(consultasDistribucionTbl), columns = 2, currency = "", mark = ",", digits = 0)
     #--- TABLAS DE CONSULTAS POR PROFESION ---#
     #
     #--- Tabla de consultas totales por profesion ---#
@@ -152,13 +173,13 @@ procesarTablas<-function(tablaQuery, Actual=T){
     print(proc.time() - ptm)
     return(listaTablas)
     #
-  #--- Generar tabla para las consultas del periodo anterior  
+    #--- Generar tabla para las consultas del periodo anterior  
   } else{
     consultasTotalesLastYear<-tablaQuery %>% group_by(searchdateMonths) %>% summarise(ConsultasTotales=sum(ConsultasTotales))
     fechasFormateadas<-paste0(consultasTotalesLastYear$searchdateMonths, "-01")
     consultasTotalesLastYear$searchdateMonths<-as.Date(fechasFormateadas)
-    consultasTotalesLastYear$Periodo<-year(consultasTotalesLastYear$searchdateMonths)
-    
+    #consultasTotalesLastYear$Periodo<-year(consultasTotalesLastYear$searchdateMonths)
+    consultasTotalesLastYear$Periodo<-"Anterior"
     tablaSpread <- consultasTotalesLastYear %>% spread(searchdateMonths, ConsultasTotales, fill=0)
     fechasColNames<-format(as.Date(colnames(tablaSpread)[-1]), "%b")
     colnames(tablaSpread)<-c("Periodo", fechasColNames)
@@ -166,7 +187,7 @@ procesarTablas<-function(tablaQuery, Actual=T){
     tablaSpread<-cbind(tablaSpread, TOTAL)
     tablaSpreadP<-rbind(listaTablas$tablaSpreadPeriodos, tablaSpread)
     listaTablas$consultasPeriodos<<-formatCurrency(datatable(tablaSpreadP), columns = 2:NCOL(tablaSpreadP), currency = "", mark = ",", digits = 0) 
-
+    
     
     return(consultasTotalesLastYear)
   }
